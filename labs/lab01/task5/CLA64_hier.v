@@ -1,39 +1,75 @@
-// cla64_hier.v
-// BONUS -- open-ended. No detailed scaffold is provided; this is meant to
-// be a genuine design exercise. Not required for lab submission.
-//
-// You will likely need to modify cla4.v (or add signals alongside it) so
-// that block-generate/block-propagate summaries of its own Gi, Pi signals
-// are exposed as outputs, since the second-level lookahead unit below
-// needs them. As with every module in this lab from Task 2 onward, every
-// gate/assign you add should carry an explicit delay.
-//
-// Starting point (from Tutorial 3, Q4(d)):
-//   - Reuse 16 four-bit CLA blocks (your cla4.v) -- their internal logic
-//     doesn't change.
-//   - For each block k, define:
-//       Gblk_k = "this block produces a carry regardless of its incoming
-//                 carry" -- a Boolean function of that block's own 4
-//                 bit-level Gi, Pi signals.
-//       Pblk_k = "an incoming carry sails straight through this whole
-//                 block" -- likewise a function of its own Gi, Pi.
-//   - Build a second-level lookahead unit -- structurally identical to
-//     cla4.v, just one level up -- that computes each block's carry-in
-//     directly from Gblk_0..Gblk_15, Pblk_0..Pblk_15, and cin, instead of
-//     rippling block to block.
-//
-// To test this, wire it into dut.v as a fourth option (copy the pattern
-// used for the other three) and run it through the same tb.v. Compare
-// your final delay to cla64_blocked.v from Task 4.
 
 module cla64_hier(
-  input  [63:0] a,
-  input  [63:0] b,
-  input         cin,
-  output [63:0] sum,
-  output        cout
+
+    input  [63:0] a,
+    input  [63:0] b,
+    input         cin,
+
+    output [63:0] sum,
+    output        cout
+
 );
 
-  // TODO: your hierarchical design goes here.
+    wire [15:0] Gblk, Pblk;
+    wire [16:0] c;
+
+    assign #(2) c[0] = cin;
+
+    // ------------------------------------------------------------
+    // Block generate/propagate signals
+    // ------------------------------------------------------------
+
+    genvar i;
+    generate
+        for (i = 0; i < 16; i = i + 1) begin : gen_blocks
+
+            cla4 block (
+                .a   (a[i*4 +: 4]),
+                .b   (b[i*4 +: 4]),
+                .cin (c[i]),
+                .sum (sum[i*4 +: 4]),
+                .cout()
+            );
+
+            assign #(2) Pblk[i] =
+                (a[i*4] ^ b[i*4]) &
+                (a[i*4+1] ^ b[i*4+1]) &
+                (a[i*4+2] ^ b[i*4+2]) &
+                (a[i*4+3] ^ b[i*4+3]);
+
+            assign #(2) Gblk[i] =
+                (a[i*4+3] & b[i*4+3]) |
+                ((a[i*4+3] ^ b[i*4+3]) &
+                 (a[i*4+2] & b[i*4+2])) |
+                ((a[i*4+3] ^ b[i*4+3]) &
+                 (a[i*4+2] ^ b[i*4+2]) &
+                 (a[i*4+1] & b[i*4+1])) |
+                ((a[i*4+3] ^ b[i*4+3]) &
+                 (a[i*4+2] ^ b[i*4+2]) &
+                 (a[i*4+1] ^ b[i*4+1]) &
+                 (a[i*4] & b[i*4]));
+
+        end
+    endgenerate
+
+    // ------------------------------------------------------------
+    // Second-level carry lookahead
+    //
+    // Each carry uses the recursive lookahead relation:
+    // c[k+1] = Gblk[k] | (Pblk[k] & c[k])
+    //
+    // ------------------------------------------------------------
+
+    genvar j;
+    generate
+        for (j = 0; j < 16; j = j + 1) begin : gen_carries
+
+            assign #(2) c[j+1] =
+                Gblk[j] | (Pblk[j] & c[j]);
+
+        end
+    endgenerate
+
+    assign #(2) cout = c[16];
 
 endmodule
