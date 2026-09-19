@@ -1,22 +1,49 @@
-// comp2.v 
-// 2-bit unsigned magnitude comparator. 
-// Given two 2-bit values A and B, exactly one of GT, LT, EQ should be 1 
-// for any input combination. 
-// 
-// This module has a bug that a *self-checking* testbench should catch on 
-// its own -- you should not need to inspect the code below to find it. 
-// Write your testbench first, let it tell you something is wrong, THEN 
-// come back and fix this file. 
- 
-module comp2 ( 
-  input  [1:0] A, 
-  input  [1:0] B, 
-  output       GT, 
-  output       LT, 
-  output       EQ 
-); 
- 
-  assign EQ = (A == B); 
-  assign GT = (A > B); 
-  assign LT = (A < B); 
+module tb;
+reg [1:0] t_a, t_b;
+wire t_gt, t_lt, t_eq;
+reg exp_gt, exp_lt, exp_eq;
+integer i, j;
+integer errors;
+comp2 DUT (
+.A (t_a),
+.B (t_b),
+.GT (t_gt),
+.LT (t_lt),
+.EQ (t_eq)
+);
+// Waveform dump configuration
+string vcd_file;
+initial begin
+if ($value$plusargs("vcd=%s", vcd_file)) begin
+$dumpfile(vcd_file);
+$dumpvars(0, DUT);
+end
+end
+initial begin
+errors = 0;
+for (i = 0; i < 4; i = i + 1) begin
+for (j = 0; j < 4; j = j + 1) begin
+t_a = i[1:0];
+t_b = j[1:0];
+#5;
+exp_gt = (i > j);
+exp_lt = (i < j);
+exp_eq = (i == j);
+if (t_gt !== exp_gt || t_lt !== exp_lt || t_eq !== exp_eq) begin
+$display("FAIL: A=%b B=%b | GT=%b LT=%b EQ=%b (expected GT=%b LT=%b EQ=%b)",
+t_a, t_b, t_gt, t_lt, t_eq, exp_gt, exp_lt, exp_eq);
+errors = errors + 1;
+end else begin
+$display("PASS: A=%b B=%b | GT=%b LT=%b EQ=%b",
+t_a, t_b, t_gt, t_lt, t_eq);
+end
+end
+
+end
+if (errors == 0)
+$display("ALL TESTS PASSED");
+else
+$display("TESTS FAILED: %0d error(s)", errors);
+$finish;
+end
 endmodule
