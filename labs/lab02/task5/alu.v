@@ -1,65 +1,52 @@
-// alu.v
+module tb;
 
-// 1-bit-opcode ALU: op=0 -> add, op=1 -> sub. 4-bit operands.
+reg [3:0] t_a, t_b;
+reg t_op;
+wire [3:0] t_result;
 
-// Subtraction is implemented the way real hardware does it: negate b (one's
-
-// complement, then +1 for two's complement) and add.
-
-//
-
-// This module has TWO separate bugs for you to find by simulating it with
-
-// your own testbench -- not by reading the code:
-
-//   1. A sensitivity-list bug (combinational output not updating on every
-
-//      relevant input change).
-
-//   2. A blocking/non-blocking bug in the subtract path.
-
-// 
-
-// Write your own tb.v, use it to find both problems, then fix this file
-
-// and re-test before submitting.
-
-module alu (
-
-  input      [3:0] a,
-
-  input      [3:0] b,
-
-  input             op,      // 0 = add, 1 = sub
-
-  output reg [3:0] result
-
+reg [3:0] expected;
+integer i, j, k;
+integer errors;
+alu DUT (
+.a (t_a),
+.b (t_b),
+.op (t_op),
+.result (t_result)
 );
+// Waveform dump configuration
+string vcd_file;
+initial begin
+if ($value$plusargs("vcd=%s", vcd_file)) begin
+$dumpfile(vcd_file);
+$dumpvars(0, tb);
+end
+end
+initial begin
+errors = 0;
+for (k = 0; k < 2; k = k + 1) begin
+for (i = 0; i < 16; i = i + 1) begin
+for (j = 0; j < 16; j = j + 1) begin
+t_op = k[0];
+t_a = i[3:0];
+t_b = j[3:0];
+#5;
+if (k == 0)
+expected = i[3:0] + j[3:0];
+else
+expected = i[3:0] - j[3:0];
+if (t_result !== expected) begin
+$display("FAIL: op=%b a=%0d b=%0d | result=%0d expected=%0d";,
+t_op, t_a, t_b, t_result, expected);
+errors = errors + 1;
+end
+end
 
-  reg [3:0] b_inv;
-
-  reg [3:0] b_twos;
-
-  always @(*) begin
-
-    case (op)
-
-      1'b0: begin
-
-        result = a + b;                 // add
-
-      end
-
-      1'b1: begin
-
-        b_inv  = ~b;                   // sub, via two's complement
-        b_twos = b_inv + 1;
-        result = a + b_twos;
-
-      end
-
-    endcase
-
-  end
-
+end
+end
+if (errors == 0)
+$display("ALL TESTS PASSED");
+else
+$display("TESTS FAILED: %0d error(s)", errors);
+$finish;
+end
 endmodule
